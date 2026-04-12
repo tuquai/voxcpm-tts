@@ -51,6 +51,7 @@ Thumbs.db
 # But keep example audio
 !examples/*.mp3
 !examples/*.wav
+!examples/*.mp4
 
 # Misc
 *.bak

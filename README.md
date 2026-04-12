@@ -6,9 +6,13 @@ A modern web application for text-to-speech generation powered by [VoxCPM2](http
 
 > **Original** vs **AI-Cloned** — hear the difference:
 
-| Original Voice | Cloned Voice (AI) |
-|:-:|:-:|
-| [original.mp3](examples/original.mp3) | [cloned.wav](examples/cloned.wav) |
+**Original Voice**
+
+<video src="examples/original.mp4" controls preload="metadata" width="400"></video>
+
+**Cloned Voice (AI)**
+
+<video src="examples/cloned.mp4" controls preload="metadata" width="400"></video>
 
 ## Features
 
