@@ -8,11 +8,11 @@ A modern web application for text-to-speech generation powered by [VoxCPM2](http
 
 **Original Voice**
 
-<video src="examples/original.mp4" controls preload="metadata" width="400"></video>
+https://github.com/tuquai/voxcpm-tts/raw/main/examples/original.mp4
 
 **Cloned Voice (AI)**
 
-<video src="examples/cloned.mp4" controls preload="metadata" width="400"></video>
+https://github.com/tuquai/voxcpm-tts/raw/main/examples/cloned.mp4
 
 ## Features
 
