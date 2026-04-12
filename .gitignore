@@ -48,6 +48,10 @@ Thumbs.db
 *.flac
 *.ogg
 
+# But keep example audio
+!examples/*.mp3
+!examples/*.wav
+
 # Misc
 *.bak
 *.tmp
