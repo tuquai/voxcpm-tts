@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VoxCPM Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="logo-group">
+          <div class="logo-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="logo-text">VoxCPM Studio</h1>
+            <p class="logo-sub">Multilingual TTS &middot; Voice Design &middot; Voice Cloning</p>
+          </div>
+        </div>
+        <div class="header-badge" id="statusBadge">
+          <span class="status-dot"></span>
+          <span class="status-text">Ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="design">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+          <path d="M2 2l7.586 7.586"/>
+          <circle cx="11" cy="11" r="2"/>
+        </svg>
+        语音设计
+      </button>
+      <button class="tab-btn" data-tab="clone">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        语音克隆
+      </button>
+    </nav>
+
+    <!-- Design Tab -->
+    <main class="tab-panel active" id="panel-design">
+      <div class="panel-grid">
+        <section class="card input-card">
+          <h2 class="card-title">语音设计</h2>
+          <p class="card-desc">通过自然语言描述创造全新声音，无需参考音频</p>
+
+          <div class="form-group">
+            <label for="designDesc">声音描述</label>
+            <textarea id="designDesc" rows="3" placeholder="例如：年轻女性，温柔甜美，语速适中，带有轻微微笑感&#10;或：A deep male voice, calm and authoritative, slow pace"></textarea>
+            <span class="hint">描述目标声音的特征：性别、年龄、语气、情绪、语速等（支持中英文）</span>
+          </div>
+
+          <div class="form-group">
+            <label for="designText">目标文本 <span class="required">*</span></label>
+            <textarea id="designText" rows="4" placeholder="输入需要合成的文本内容..."></textarea>
+          </div>
+
+          <!-- Advanced -->
+          <details class="advanced-panel">
+            <summary>高级设置</summary>
+            <div class="advanced-body">
+              <div class="param-row">
+                <div class="param-item">
+                  <label for="designCfg">CFG 引导强度</label>
+                  <div class="slider-group">
+                    <input type="range" id="designCfg" min="1.0" max="3.0" step="0.1" value="2.0" />
+                    <span class="slider-val" id="designCfgVal">2.0</span>
+                  </div>
+                </div>
+                <div class="param-item">
+                  <label for="designSteps">LocDiT 步数</label>
+                  <div class="slider-group">
+                    <input type="range" id="designSteps" min="1" max="50" step="1" value="10" />
+                    <span class="slider-val" id="designStepsVal">10</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <button class="btn-primary" id="btnDesign" onclick="handleDesign()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            生成语音
+          </button>
+        </section>
+
+        <section class="card result-card">
+          <h2 class="card-title">生成结果</h2>
+          <div class="result-area" id="designResult">
+            <div class="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+              <p>设计你的声音，结果将在此展示</p>
+            </div>
+          </div>
+
+          <!-- Examples -->
+          <div class="examples-section">
+            <h3>示例</h3>
+            <div class="example-chips">
+              <button class="chip" onclick="fillDesignExample('深宫太后','中老年女性，声音低沉阴冷，语速缓慢而有力，字字深思熟虑，带有深不可测的城府与威慑感','哀家在这深宫待了四十年，什么风浪没见过？你以为瞒得过哀家？')">深宫太后</button>
+              <button class="chip" onclick="fillDesignExample('暴躁教练','暴躁的中年男声，语速快，充满无奈和愤怒','踩离合！踩刹车啊！你往哪儿开呢？前面是树你看不见吗？')">暴躁教练</button>
+              <button class="chip" onclick="fillDesignExample('温柔少女','年轻女孩，声音轻柔甜美，语速缓慢，略带忧郁和傲娇','我才没有要你留下来呢…又不是我在意你。只是…你走了以后，为什么还是会这么难过呢？')">温柔少女</button>
+              <button class="chip" onclick="fillDesignExample('Surfer Dude','Relaxed young male voice, slightly nasal, lazy drawl, very casual and chill','Dude, did you see that set? The waves out there are totally gnarly today.')">Surfer Dude</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Clone Tab -->
+    <main class="tab-panel" id="panel-clone">
+      <div class="panel-grid">
+        <section class="card input-card">
+          <h2 class="card-title">语音克隆</h2>
+          <p class="card-desc">上传参考音频，克隆声音来朗读新的文本</p>
+
+          <div class="form-group">
+            <label>参考音频 <span class="required">*</span></label>
+            <div class="upload-zone" id="uploadZone">
+              <input type="file" id="cloneAudio" accept="audio/*" />
+              <div class="upload-placeholder" id="uploadPlaceholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <p>点击或拖拽上传音频文件</p>
+                <span class="hint">支持 WAV / MP3 / FLAC 等格式</span>
+              </div>
+              <div class="upload-preview hidden" id="uploadPreview">
+                <div class="preview-info">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                  <span id="audioFileName">file.wav</span>
+                  <button class="btn-icon" onclick="clearAudio()" title="移除">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+                <audio id="refAudioPlayer" controls></audio>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cloneRefText">
+              范本文本
+              <span class="optional-tag">可选</span>
+            </label>
+            <div class="ref-text-row">
+              <textarea id="cloneRefText" rows="2" placeholder="参考音频对应的文字内容（提供后可实现极致克隆效果）"></textarea>
+              <button class="btn-secondary btn-sm" id="btnASR" onclick="handleASR()" title="自动识别参考音频文本">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                识别
+              </button>
+            </div>
+            <span class="hint">提供范本文本可启用「极致克隆」模式，完整还原音色、节奏、情感等声音细节</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cloneTargetText">目标文本 <span class="required">*</span></label>
+            <textarea id="cloneTargetText" rows="4" placeholder="输入需要用克隆声音朗读的文本..."></textarea>
+          </div>
+
+          <!-- Advanced -->
+          <details class="advanced-panel">
+            <summary>高级设置</summary>
+            <div class="advanced-body">
+              <div class="param-row">
+                <div class="param-item">
+                  <label for="cloneCfg">CFG 引导强度</label>
+                  <div class="slider-group">
+                    <input type="range" id="cloneCfg" min="1.0" max="3.0" step="0.1" value="2.0" />
+                    <span class="slider-val" id="cloneCfgVal">2.0</span>
+                  </div>
+                </div>
+                <div class="param-item">
+                  <label for="cloneSteps">LocDiT 步数</label>
+                  <div class="slider-group">
+                    <input type="range" id="cloneSteps" min="1" max="50" step="1" value="10" />
+                    <span class="slider-val" id="cloneStepsVal">10</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <button class="btn-primary" id="btnClone" onclick="handleClone()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            生成克隆语音
+          </button>
+        </section>
+
+        <section class="card result-card">
+          <h2 class="card-title">克隆结果</h2>
+          <div class="result-area" id="cloneResult">
+            <div class="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <p>上传参考音频并输入目标文本，开始克隆</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

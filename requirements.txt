@@ -1,0 +1,9 @@
+voxcpm
+fastapi[standard]
+uvicorn[standard]
+python-multipart
+soundfile
+numpy
+torch>=2.5.0
+torchaudio>=2.5.0
+funasr
