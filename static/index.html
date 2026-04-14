@@ -137,45 +137,95 @@
           <h2 class="card-title">语音克隆</h2>
           <p class="card-desc">上传参考音频，克隆声音来朗读新的文本</p>
 
-          <div class="form-group">
-            <label>参考音频 <span class="required">*</span></label>
-            <div class="upload-zone" id="uploadZone">
-              <input type="file" id="cloneAudio" accept="audio/*" />
-              <div class="upload-placeholder" id="uploadPlaceholder">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <p>点击或拖拽上传音频文件</p>
-                <span class="hint">支持 WAV / MP3 / FLAC 等格式</span>
-              </div>
-              <div class="upload-preview hidden" id="uploadPreview">
-                <div class="preview-info">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                  <span id="audioFileName">file.wav</span>
-                  <button class="btn-icon" onclick="clearAudio()" title="移除">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+          <!-- Voice Source Toggle -->
+          <div class="voice-source-toggle">
+            <button class="source-btn active" data-source="upload" onclick="switchVoiceSource('upload')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              上传音频
+            </button>
+            <button class="source-btn" data-source="saved" onclick="switchVoiceSource('saved')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              已保存音色
+            </button>
+          </div>
+
+          <!-- Source: Upload Audio -->
+          <div id="sourceUpload">
+            <div class="form-group">
+              <label>参考音频 <span class="required">*</span></label>
+              <div class="upload-zone" id="uploadZone">
+                <input type="file" id="cloneAudio" accept="audio/*" />
+                <div class="upload-placeholder" id="uploadPlaceholder">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <p>点击或拖拽上传音频文件</p>
+                  <span class="hint">支持 WAV / MP3 / FLAC 等格式</span>
                 </div>
-                <audio id="refAudioPlayer" controls></audio>
+                <div class="upload-preview hidden" id="uploadPreview">
+                  <div class="preview-info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    <span id="audioFileName">file.wav</span>
+                    <button class="btn-icon" onclick="clearAudio()" title="移除">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                  <audio id="refAudioPlayer" controls></audio>
+                </div>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label for="cloneRefText">
+                范本文本
+                <span class="optional-tag">可选</span>
+              </label>
+              <div class="ref-text-row">
+                <textarea id="cloneRefText" rows="2" placeholder="参考音频对应的文字内容（提供后可实现极致克隆效果）"></textarea>
+                <button class="btn-secondary btn-sm" id="btnASR" onclick="handleASR()" title="自动识别参考音频文本">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                  识别
+                </button>
+              </div>
+              <span class="hint">提供范本文本可启用「极致克隆」模式，完整还原音色、节奏、情感等声音细节</span>
+            </div>
+
+            <!-- Save Voice Button -->
+            <div class="form-group">
+              <div class="save-voice-row">
+                <input type="text" id="saveVoiceName" class="save-voice-input" placeholder="为这个音色起个名字..." />
+                <button class="btn-secondary btn-sm" id="btnSaveVoice" onclick="handleSaveVoice()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                  </svg>
+                  保存音色
+                </button>
+              </div>
+              <span class="hint">保存后可无限次使用此音色，无需重复上传音频</span>
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="cloneRefText">
-              范本文本
-              <span class="optional-tag">可选</span>
-            </label>
-            <div class="ref-text-row">
-              <textarea id="cloneRefText" rows="2" placeholder="参考音频对应的文字内容（提供后可实现极致克隆效果）"></textarea>
-              <button class="btn-secondary btn-sm" id="btnASR" onclick="handleASR()" title="自动识别参考音频文本">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-                识别
-              </button>
+          <!-- Source: Saved Voices -->
+          <div id="sourceSaved" class="hidden">
+            <div class="form-group">
+              <label>选择已保存的音色 <span class="required">*</span></label>
+              <div class="saved-voices-list" id="savedVoicesList">
+                <div class="empty-state small-empty">
+                  <p>加载中...</p>
+                </div>
+              </div>
             </div>
-            <span class="hint">提供范本文本可启用「极致克隆」模式，完整还原音色、节奏、情感等声音细节</span>
           </div>
 
           <div class="form-group">

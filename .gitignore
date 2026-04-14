@@ -53,6 +53,9 @@ Thumbs.db
 !examples/*.wav
 !examples/*.mp4
 
+# Saved voices
+saved_voices/
+
 # Misc
 *.bak
 *.tmp
