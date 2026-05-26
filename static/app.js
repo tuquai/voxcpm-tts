@@ -10,16 +10,20 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
 /* ========== Slider value sync ========== */
 const sliders = [
-  ["designCfg", "designCfgVal"],
-  ["designSteps", "designStepsVal"],
-  ["cloneCfg", "cloneCfgVal"],
-  ["cloneSteps", "cloneStepsVal"],
+  ["designCfg", "designCfgVal", (v) => v],
+  ["designSteps", "designStepsVal", (v) => v],
+  ["designSpeed", "designSpeedVal", (v) => parseFloat(v).toFixed(2) + "×"],
+  ["cloneCfg", "cloneCfgVal", (v) => v],
+  ["cloneSteps", "cloneStepsVal", (v) => v],
+  ["cloneSpeed", "cloneSpeedVal", (v) => parseFloat(v).toFixed(2) + "×"],
+  ["clonePause", "clonePauseVal", (v) => parseFloat(v).toFixed(2) + "×"],
 ];
-sliders.forEach(([sliderId, valId]) => {
+sliders.forEach(([sliderId, valId, fmt]) => {
   const slider = document.getElementById(sliderId);
+  if (!slider) return;
   const valSpan = document.getElementById(valId);
   slider.addEventListener("input", () => {
-    valSpan.textContent = slider.value;
+    valSpan.textContent = fmt(slider.value);
   });
 });
 
@@ -265,6 +269,7 @@ async function handleDesign() {
   const description = document.getElementById("designDesc").value.trim();
   const cfg = document.getElementById("designCfg").value;
   const steps = document.getElementById("designSteps").value;
+  const speed = document.getElementById("designSpeed").value;
 
   if (!text) {
     alert("请输入目标文本");
@@ -288,6 +293,7 @@ async function handleDesign() {
     form.append("description", description);
     form.append("cfg_value", cfg);
     form.append("inference_timesteps", steps);
+    form.append("speed", speed);
 
     const blob = await fetchStreamingAudio(
       "/api/voice-design/stream", form, controller.signal, "designResult"
@@ -427,6 +433,8 @@ async function handleClone() {
   const targetText = document.getElementById("cloneTargetText").value.trim();
   const cfg = document.getElementById("cloneCfg").value;
   const steps = document.getElementById("cloneSteps").value;
+  const speed = document.getElementById("cloneSpeed").value;
+  const pauseScale = document.getElementById("clonePause").value;
 
   if (!targetText) {
     alert("请输入目标文本");
@@ -460,6 +468,11 @@ async function handleClone() {
     form.append("target_text", targetText);
     form.append("cfg_value", cfg);
     form.append("inference_timesteps", steps);
+    form.append("speed", speed);
+    form.append("pause_scale", pauseScale);
+
+    const stylePrompt = document.getElementById("cloneStylePrompt").value.trim();
+    if (stylePrompt) form.append("style_prompt", stylePrompt);
 
     if (usingSaved) {
       form.append("voice_id", selectedVoiceId);
@@ -548,4 +561,54 @@ function fillDesignExample(name, desc, text) {
   document.getElementById("designDesc").value = desc;
   document.getElementById("designText").value = text;
   document.getElementById("designDesc").focus();
+}
+
+/* ========== Clone Style Chips ========== */
+// Chip label map: value → display name
+const STYLE_CHIP_LABELS = {};
+document.querySelectorAll(".style-chip[data-label]").forEach((chip) => {
+  STYLE_CHIP_LABELS[chip.dataset.value || ""] = chip.dataset.label;
+});
+
+function setStyleChip(value) {
+  const input = document.getElementById("cloneStylePrompt");
+  input.value = value;
+  _syncChipState(value);
+}
+
+function _syncChipState(value) {
+  let activeLabel = "";
+  document.querySelectorAll(".style-chip").forEach((chip) => {
+    const chipVal = chip.dataset.value;
+    const isActive = chipVal !== undefined && chipVal === value && value !== "";
+    chip.classList.toggle("active", isActive);
+    if (isActive) activeLabel = chip.textContent.trim();
+  });
+  const badge = document.getElementById("styleActiveBadge");
+  if (badge) {
+    if (activeLabel && value) {
+      badge.textContent = activeLabel;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+}
+
+function onStyleInputChange() {
+  // When user types manually, de-select all chips
+  const input = document.getElementById("cloneStylePrompt");
+  const val = input.value;
+  // Check if current value exactly matches a chip
+  let matched = false;
+  document.querySelectorAll(".style-chip").forEach((chip) => {
+    if (chip.dataset.value === val && val !== "") matched = true;
+  });
+  if (!matched) {
+    document.querySelectorAll(".style-chip").forEach((c) => c.classList.remove("active"));
+    const badge = document.getElementById("styleActiveBadge");
+    if (badge) badge.classList.add("hidden");
+  } else {
+    _syncChipState(val);
+  }
 }

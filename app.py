@@ -14,6 +14,7 @@ from typing import Optional
 
 import struct
 
+import librosa
 import numpy as np
 import soundfile as sf
 import torch
@@ -109,6 +110,37 @@ CHUNK_MAX_CHARS = 100
 MAX_PROMPT_AUDIO_LEN = 75
 
 
+def _apply_speed(wav: np.ndarray, speed: float) -> np.ndarray:
+    """Time-stretch *wav* by *speed* factor (>1 = faster, <1 = slower).
+
+    Uses librosa phase-vocoder so pitch is preserved.
+    """
+    if abs(speed - 1.0) < 0.02:
+        return wav
+    stretched = librosa.effects.time_stretch(wav.astype(np.float32), rate=speed)
+    return stretched
+
+
+def _pause_samples(text: str, pause_scale: float, sr: int) -> np.ndarray:
+    """Return a silence array to append after *text* based on trailing punctuation.
+
+    pause_scale = 1.0 → natural pauses (350 ms sentence-end / 130 ms clause).
+    pause_scale = 0.0 → no added pauses.
+    """
+    if pause_scale < 0.02:
+        return np.array([], dtype=np.float32)
+    stripped = text.rstrip()
+    last = stripped[-1] if stripped else ""
+    if last in "。！？!?":
+        ms = int(350 * pause_scale)
+    elif last in "，、；：,.;:—":
+        ms = int(130 * pause_scale)
+    else:
+        ms = int(60 * pause_scale)
+    n = int(sr * ms / 1000)
+    return np.zeros(n, dtype=np.float32) if n > 0 else np.array([], dtype=np.float32)
+
+
 def split_text_into_chunks(text: str, max_chars: int = CHUNK_MAX_CHARS) -> list:
     """Split *text* at natural sentence / clause boundaries.
 
@@ -186,13 +218,19 @@ def _rolling_cache(original_ref, chunk_text: str, audio_feat: torch.Tensor) -> d
 def _generate_chunked(
     m, target_text: str, prompt_cache: dict,
     cfg_value: float, inference_timesteps: int,
+    pause_scale: float = 1.0, speed: float = 1.0,
 ) -> np.ndarray:
-    """Generate audio for *target_text*, auto-chunking long text."""
+    """Generate audio for *target_text*, auto-chunking long text.
+
+    pause_scale: silence multiplier between chunks (1.0 = natural pauses).
+    speed: time-stretch factor (1.0 = original speed, 0.7 = 30% slower).
+    """
     chunks = split_text_into_chunks(target_text)
     if not chunks:
         raise ValueError("Empty target text")
 
     tts = m.voxcpm.tts_model
+    sr = m.sample_rate
     original_ref = prompt_cache.get("ref_audio_feat") if prompt_cache else None
     current_cache = prompt_cache
     all_wavs: list = []
@@ -206,21 +244,35 @@ def _generate_chunked(
             inference_timesteps=inference_timesteps,
         )
         all_wavs.append(wav.squeeze(0).cpu().numpy())
+        # Insert silence between chunks (not after the last one)
+        if i < len(chunks) - 1:
+            pause = _pause_samples(chunk, pause_scale, sr)
+            if len(pause):
+                all_wavs.append(pause)
         current_cache = _rolling_cache(original_ref, chunk, audio_feat)
 
-    return np.concatenate(all_wavs, axis=-1)
+    result = np.concatenate(all_wavs, axis=-1)
+    if abs(speed - 1.0) > 0.02:
+        result = _apply_speed(result, speed)
+    return result
 
 
 def _generate_chunked_streaming(
     m, target_text: str, prompt_cache: dict,
     cfg_value: float, inference_timesteps: int,
+    pause_scale: float = 1.0, speed: float = 1.0,
 ):
-    """Yield one numpy waveform per text chunk (chunk-level streaming)."""
+    """Yield one numpy waveform per text chunk (chunk-level streaming).
+
+    pause_scale: silence multiplier between chunks.
+    speed: time-stretch factor per chunk.
+    """
     chunks = split_text_into_chunks(target_text)
     if not chunks:
         return
 
     tts = m.voxcpm.tts_model
+    sr = m.sample_rate
     original_ref = prompt_cache.get("ref_audio_feat") if prompt_cache else None
     current_cache = prompt_cache
 
@@ -232,7 +284,14 @@ def _generate_chunked_streaming(
             cfg_value=cfg_value,
             inference_timesteps=inference_timesteps,
         )
-        yield wav.squeeze(0).cpu().numpy()
+        chunk_wav = wav.squeeze(0).cpu().numpy()
+        if abs(speed - 1.0) > 0.02:
+            chunk_wav = _apply_speed(chunk_wav, speed)
+        yield chunk_wav
+        if i < len(chunks) - 1:
+            pause = _pause_samples(chunk, pause_scale, sr)
+            if len(pause):
+                yield pause
         current_cache = _rolling_cache(original_ref, chunk, audio_feat)
 
 
@@ -247,6 +306,7 @@ async def voice_design(
     description: str = Form(""),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
+    speed: float = Form(1.0),
 ):
     """Voice Design: create a voice from description + synthesize text."""
     text = text.strip()
@@ -256,7 +316,7 @@ async def voice_design(
     description = description.strip()
     final_text = f"({description}){text}" if description else text
 
-    logger.info("[Voice Design] description=%s, text=%s", description[:60], text[:60])
+    logger.info("[Voice Design] description=%s, text=%s, speed=%.2f", description[:60], text[:60], speed)
 
     m = get_mgr()
     wav = m.voxcpm.generate(
@@ -264,6 +324,8 @@ async def voice_design(
         cfg_value=cfg_value,
         inference_timesteps=inference_timesteps,
     )
+    if abs(speed - 1.0) > 0.02:
+        wav = _apply_speed(wav, speed)
 
     out = save_wav(wav, m.sample_rate)
     return FileResponse(str(out), media_type="audio/wav", filename="voice_design.wav")
@@ -295,6 +357,7 @@ async def voice_design_stream(
     description: str = Form(""),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
+    speed: float = Form(1.0),
 ):
     """Streaming Voice Design: yields WAV audio chunks as they are generated."""
     text = text.strip()
@@ -303,19 +366,35 @@ async def voice_design_stream(
 
     description = description.strip()
     final_text = f"({description}){text}" if description else text
-    logger.info("[Voice Design Stream] description=%s, text=%s", description[:60], text[:60])
+    logger.info("[Voice Design Stream] description=%s, text=%s, speed=%.2f", description[:60], text[:60], speed)
 
     m = get_mgr()
     sr = m.sample_rate
+    apply_speed = abs(speed - 1.0) > 0.02
 
     def audio_stream():
         yield _wav_header(sr)
-        for chunk in m.voxcpm.generate_streaming(
-            text=final_text,
-            cfg_value=cfg_value,
-            inference_timesteps=inference_timesteps,
-        ):
-            yield _float32_to_int16_bytes(chunk)
+        if not apply_speed:
+            for chunk in m.voxcpm.generate_streaming(
+                text=final_text,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+            ):
+                yield _float32_to_int16_bytes(chunk)
+        else:
+            # Buffer all chunks so time-stretch can work on the full signal
+            raw_chunks = list(m.voxcpm.generate_streaming(
+                text=final_text,
+                cfg_value=cfg_value,
+                inference_timesteps=inference_timesteps,
+            ))
+            if raw_chunks:
+                full = np.concatenate([
+                    c if isinstance(c, np.ndarray) else c.cpu().numpy()
+                    for c in raw_chunks
+                ], axis=-1)
+                full = _apply_speed(full, speed)
+                yield _float32_to_int16_bytes(full)
 
     return StreamingResponse(
         audio_stream(),
@@ -480,23 +559,37 @@ async def voice_clone(
     voice_id: str = Form(""),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
+    style_prompt: str = Form(""),
+    speed: float = Form(1.0),
+    pause_scale: float = Form(1.0),
 ):
     """Voice Clone: clone voice from reference audio or saved voice, speak target_text.
 
     Long text is automatically split into chunks and generated with a rolling
     prompt cache so that quality and speaker identity stay consistent.
+
+    style_prompt: optional natural-language description of tone/emotion/style,
+    e.g. "开心地、语速轻快". Prepended to target_text as "(style_prompt)target_text".
+    speed: time-stretch factor (1.0 = original, 0.7 = 30% slower).
+    pause_scale: silence multiplier between chunks (1.0 = natural pauses).
     """
     target_text = target_text.strip()
     if not target_text:
         raise HTTPException(400, "Target text is required.")
 
+    style_prompt = style_prompt.strip()
+    if style_prompt:
+        target_text = f"({style_prompt}){target_text}"
+        logger.info("[Voice Clone] style_prompt applied: %s", style_prompt[:60])
+
     m = get_mgr()
     voice_id = voice_id.strip()
 
     if voice_id:
-        logger.info("[Voice Clone - Saved] voice_id=%s", voice_id)
+        logger.info("[Voice Clone - Saved] voice_id=%s, speed=%.2f, pause=%.2f", voice_id, speed, pause_scale)
         prompt_cache = _load_prompt_cache(voice_id)
-        wav = _generate_chunked(m, target_text, prompt_cache, cfg_value, inference_timesteps)
+        wav = _generate_chunked(m, target_text, prompt_cache, cfg_value, inference_timesteps,
+                                pause_scale=pause_scale, speed=speed)
         out = save_wav(wav, m.sample_rate)
         return FileResponse(str(out), media_type="audio/wav", filename="voice_clone.wav")
 
@@ -524,7 +617,8 @@ async def voice_clone(
             logger.info("[Voice Clone - Controllable] reference only")
 
         prompt_cache = _build_prompt_cache_from_ref(m, ref_path, ref_text)
-        wav = _generate_chunked(m, target_text, prompt_cache, cfg_value, inference_timesteps)
+        wav = _generate_chunked(m, target_text, prompt_cache, cfg_value, inference_timesteps,
+                                pause_scale=pause_scale, speed=speed)
         out = save_wav(wav, m.sample_rate)
         return FileResponse(str(out), media_type="audio/wav", filename="voice_clone.wav")
 
@@ -544,24 +638,33 @@ async def voice_clone_stream(
     voice_id: str = Form(""),
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
+    style_prompt: str = Form(""),
+    speed: float = Form(1.0),
+    pause_scale: float = Form(1.0),
 ):
     """Streaming Voice Clone: yields WAV audio chunk-by-chunk for long text."""
     target_text = target_text.strip()
     if not target_text:
         raise HTTPException(400, "Target text is required.")
 
+    style_prompt = style_prompt.strip()
+    if style_prompt:
+        target_text = f"({style_prompt}){target_text}"
+        logger.info("[Voice Clone Stream] style_prompt applied: %s", style_prompt[:60])
+
     m = get_mgr()
     sr = m.sample_rate
     voice_id = voice_id.strip()
 
     if voice_id:
-        logger.info("[Voice Clone Stream - Saved] voice_id=%s", voice_id)
+        logger.info("[Voice Clone Stream - Saved] voice_id=%s, speed=%.2f, pause=%.2f", voice_id, speed, pause_scale)
         prompt_cache = _load_prompt_cache(voice_id)
 
         def audio_stream_cached():
             yield _wav_header(sr)
             for wav_chunk in _generate_chunked_streaming(
                 m, target_text, prompt_cache, cfg_value, inference_timesteps,
+                pause_scale=pause_scale, speed=speed,
             ):
                 yield _float32_to_int16_bytes(wav_chunk)
 
@@ -600,6 +703,7 @@ async def voice_clone_stream(
         try:
             for wav_chunk in _generate_chunked_streaming(
                 m, target_text, prompt_cache, cfg_value, inference_timesteps,
+                pause_scale=pause_scale, speed=speed,
             ):
                 yield _float32_to_int16_bytes(wav_chunk)
         finally:

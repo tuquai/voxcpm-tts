@@ -85,6 +85,7 @@
                     <input type="range" id="designCfg" min="1.0" max="3.0" step="0.1" value="2.0" />
                     <span class="slider-val" id="designCfgVal">2.0</span>
                   </div>
+                  <span class="hint" style="margin-top:4px">越高越贴合描述，过高可能失真（推荐 2.0）</span>
                 </div>
                 <div class="param-item">
                   <label for="designSteps">LocDiT 步数</label>
@@ -92,6 +93,17 @@
                     <input type="range" id="designSteps" min="1" max="50" step="1" value="10" />
                     <span class="slider-val" id="designStepsVal">10</span>
                   </div>
+                  <span class="hint" style="margin-top:4px">越多越清晰，越慢；快速预览用 5-8，高质量用 20-30</span>
+                </div>
+              </div>
+              <div class="param-row" style="margin-top:0.75rem">
+                <div class="param-item">
+                  <label for="designSpeed">语速调节</label>
+                  <div class="slider-group">
+                    <input type="range" id="designSpeed" min="0.5" max="2.0" step="0.05" value="1.0" />
+                    <span class="slider-val" id="designSpeedVal">1.0×</span>
+                  </div>
+                  <span class="hint" style="margin-top:4px">后处理时间拉伸，不改变音色</span>
                 </div>
               </div>
             </div>
@@ -229,6 +241,75 @@
           </div>
 
           <div class="form-group">
+            <label for="cloneStylePrompt">
+              语气风格描述
+              <span class="optional-tag">可选</span>
+            </label>
+            <div class="style-input-row">
+              <input type="text" id="cloneStylePrompt" placeholder="例如：开心地、语速轻快  或  悲伤低沉、语速缓慢  或  严肃认真" oninput="onStyleInputChange()" />
+              <span class="style-active-badge hidden" id="styleActiveBadge"></span>
+            </div>
+            <span class="hint">用自然语言描述说话时的情绪和语气，让克隆声音更具表现力</span>
+            <div class="style-chips">
+              <button class="style-chip" data-value="开心地，语速轻快，充满活力" onclick="setStyleChip(this.dataset.value)">😄 开心</button>
+              <button class="style-chip" data-value="悲伤地，语速缓慢，声音低沉，略带哽咽" onclick="setStyleChip(this.dataset.value)">😢 悲伤</button>
+              <button class="style-chip" data-value="严肃认真，语速平稳，字正腔圆，沉稳权威" onclick="setStyleChip(this.dataset.value)">🎙️ 严肃</button>
+              <button class="style-chip" data-value="兴奋地，语速较快，充满热情，音调偏高" onclick="setStyleChip(this.dataset.value)">🔥 兴奋</button>
+              <button class="style-chip" data-value="平静温柔，语速舒缓，富有亲和力，声音轻柔" onclick="setStyleChip(this.dataset.value)">🌿 温柔</button>
+              <button class="style-chip" data-value="愤怒地，语气激动，语速急促，声音有力" onclick="setStyleChip(this.dataset.value)">😤 愤怒</button>
+              <button class="style-chip" data-value="俏皮调侃，语速轻快，带有轻微上扬的尾音" onclick="setStyleChip(this.dataset.value)">😏 俏皮</button>
+              <button class="style-chip" data-value="哭泣中，声音哽咽，断断续续，情绪崩溃" onclick="setStyleChip(this.dataset.value)">😭 哭腔</button>
+              <button class="style-chip" data-value="恐惧颤抖，声音发颤，语速不稳，带有惊慌" onclick="setStyleChip(this.dataset.value)">😨 恐惧</button>
+              <button class="style-chip" data-value="冷漠疏离，语调平淡，毫无起伏，语速均匀" onclick="setStyleChip(this.dataset.value)">😑 冷漠</button>
+              <button class="style-chip" data-value="惊讶地，语调急促上扬，带有不可置信的感觉" onclick="setStyleChip(this.dataset.value)">😲 惊讶</button>
+              <button class="style-chip" data-value="委屈地，声音轻柔，带有明显的撒娇和不满" onclick="setStyleChip(this.dataset.value)">🥺 委屈</button>
+              <button class="style-chip" data-value="蔑视地，语调轻描淡写，带有明显的不屑和讽刺" onclick="setStyleChip(this.dataset.value)">😒 蔑视</button>
+              <button class="style-chip" data-value="微微醉酒，吐字略有模糊，语调飘忽，带有慵懒感" onclick="setStyleChip(this.dataset.value)">🍺 醉意</button>
+              <button class="style-chip" data-value="昏昏欲睡，声音低沉慵懒，语速缓慢，气息绵长" onclick="setStyleChip(this.dataset.value)">😴 困倦</button>
+              <button class="style-chip" data-value="新闻播报风格，字正腔圆，语速适中，沉稳克制，毫无个人情感" onclick="setStyleChip(this.dataset.value)">📰 播报</button>
+              <button class="style-chip" data-value="讲故事般娓娓道来，声音温暖，语速舒缓，富有画面感" onclick="setStyleChip(this.dataset.value)">📖 叙事</button>
+              <button class="style-chip" data-value="耳语般压低声音，气声明显，像在耳边轻声细语" onclick="setStyleChip(this.dataset.value)">🤫 耳语</button>
+              <button class="style-chip" data-value="充满磁性，声音低沉浑厚，语速适中，极具感染力" onclick="setStyleChip(this.dataset.value)">🎵 磁性</button>
+              <button class="style-chip" data-value="活泼可爱，语调上扬，语速轻快，充满孩子气" onclick="setStyleChip(this.dataset.value)">🌟 可爱</button>
+              <button class="style-chip" data-value="confident and energetic, upbeat pace, clear articulation" onclick="setStyleChip(this.dataset.value)">💼 英 活力</button>
+              <button class="style-chip" data-value="calm and soothing, slow pace, warm and reassuring tone" onclick="setStyleChip(this.dataset.value)">🧘 英 平静</button>
+              <button class="style-chip" data-value="dramatic and theatrical, expressive, with emotional peaks and valleys" onclick="setStyleChip(this.dataset.value)">🎭 英 戏剧</button>
+              <button class="style-chip style-chip-clear" onclick="setStyleChip('')">✕ 清除</button>
+            </div>
+          </div>
+
+          <!-- Speed & Pause Controls -->
+          <div class="form-group speed-pause-group">
+            <div class="speed-pause-row">
+              <div class="speed-item">
+                <label for="cloneSpeed">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  语速
+                </label>
+                <div class="speed-slider-row">
+                  <span class="speed-end-label">慢</span>
+                  <input type="range" id="cloneSpeed" min="0.5" max="2.0" step="0.05" value="1.0" />
+                  <span class="speed-end-label">快</span>
+                  <span class="slider-val" id="cloneSpeedVal">1.0×</span>
+                </div>
+              </div>
+              <div class="speed-item">
+                <label for="clonePause">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  停顿
+                </label>
+                <div class="speed-slider-row">
+                  <span class="speed-end-label">无</span>
+                  <input type="range" id="clonePause" min="0.0" max="3.0" step="0.25" value="1.0" />
+                  <span class="speed-end-label">长</span>
+                  <span class="slider-val" id="clonePauseVal">1.0×</span>
+                </div>
+              </div>
+            </div>
+            <span class="hint">语速：调整最终音频播放速度（不改变音色）。停顿：控制句间静音时长，0 = 无停顿，1 = 自然停顿</span>
+          </div>
+
+          <div class="form-group">
             <label for="cloneTargetText">目标文本 <span class="required">*</span></label>
             <textarea id="cloneTargetText" rows="4" placeholder="输入需要用克隆声音朗读的文本..."></textarea>
           </div>
@@ -244,6 +325,7 @@
                     <input type="range" id="cloneCfg" min="1.0" max="3.0" step="0.1" value="2.0" />
                     <span class="slider-val" id="cloneCfgVal">2.0</span>
                   </div>
+                  <span class="hint" style="margin-top:4px">越高越贴合描述，过高可能失真（推荐 2.0）</span>
                 </div>
                 <div class="param-item">
                   <label for="cloneSteps">LocDiT 步数</label>
@@ -251,6 +333,7 @@
                     <input type="range" id="cloneSteps" min="1" max="50" step="1" value="10" />
                     <span class="slider-val" id="cloneStepsVal">10</span>
                   </div>
+                  <span class="hint" style="margin-top:4px">越多越清晰，越慢；快速预览用 5-8，高质量用 20-30</span>
                 </div>
               </div>
             </div>

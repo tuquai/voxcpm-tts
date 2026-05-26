@@ -754,6 +754,164 @@ textarea::placeholder {
   background: var(--accent-light);
 }
 
+/* ========== Style Chips (Clone tone presets) ========== */
+.style-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.style-chip {
+  padding: 4px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  line-height: 1.5;
+}
+
+.style-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.style-chip.active {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(91, 127, 245, 0.25);
+}
+
+.style-chip-clear {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+.style-chip-clear:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #fef2f2;
+}
+
+/* ========== Style input row ========== */
+.style-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.style-input-row input {
+  flex: 1;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.style-input-row input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(91, 127, 245, 0.15);
+}
+
+.style-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.style-active-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.style-active-badge.hidden {
+  display: none;
+}
+
+/* ========== Speed & Pause Controls ========== */
+.speed-pause-group {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+}
+
+.speed-pause-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.speed-item label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.speed-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.speed-slider-row input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+}
+
+.speed-slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: var(--shadow-sm);
+}
+
+.speed-end-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .speed-pause-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ========== Voice Source Toggle ========== */
 .voice-source-toggle {
   display: flex;
