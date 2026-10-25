@@ -274,10 +274,13 @@ def _generate_chunked_streaming(
     cfg_value: float, inference_timesteps: int,
     pause_scale: float = 1.0, speed: float = 1.0,
 ):
-    """Yield one numpy waveform per text chunk (chunk-level streaming).
+    """Yield numpy waveforms as they are generated: patch by patch within each text chunk (first
+    audio after a few patches, not after the whole chunk), silence between chunks. Each chunk
+    continues from the previous one's features (rolling cache).
 
     pause_scale: silence multiplier between chunks.
-    speed: time-stretch factor per chunk.
+    speed: time-stretch factor per chunk; anything but 1.0 needs the whole chunk, so it is not
+    streamed within the chunk.
     """
     chunks = split_text_into_chunks(target_text)
     if not chunks:
@@ -290,16 +293,20 @@ def _generate_chunked_streaming(
 
     for i, chunk in enumerate(chunks):
         logger.info("[Chunked Stream %d/%d] %s", i + 1, len(chunks), chunk[:60])
-        wav, _, audio_feat = tts.generate_with_prompt_cache(
-            target_text=chunk,
-            prompt_cache=current_cache,
-            cfg_value=cfg_value,
-            inference_timesteps=inference_timesteps,
-        )
-        chunk_wav = wav.squeeze(0).cpu().numpy()
+        kwargs = dict(target_text=chunk, prompt_cache=current_cache, cfg_value=cfg_value,
+                      inference_timesteps=inference_timesteps)
         if abs(speed - 1.0) > 0.02:
-            chunk_wav = _apply_speed(chunk_wav, speed)
-        yield chunk_wav
+            wav, _, audio_feat = tts.generate_with_prompt_cache(**kwargs)
+            yield _apply_speed(wav.squeeze(0).cpu().numpy(), speed)
+        else:
+            feats = None
+            for wav, _, feats in tts.generate_with_prompt_cache_streaming(**kwargs):
+                yield wav.squeeze(0).cpu().numpy()
+            if feats is None:
+                raise RuntimeError(f"voxcpm generated nothing for {chunk[:30]!r}")
+            # the growing list of [1, 1, p, d] patches (prompt context first), as the
+            # non-streaming call returns it concatenated
+            audio_feat = torch.cat(feats, dim=1).squeeze(0).cpu()
         if i < len(chunks) - 1:
             pause = _pause_samples(chunk, pause_scale, sr)
             if len(pause):
