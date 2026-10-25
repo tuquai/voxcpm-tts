@@ -182,6 +182,25 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/* ========== Seed ========== */
+let lastSeed = null;  // X-Seed of the last generation
+
+function seedValue(inputId) {
+  const v = document.getElementById(inputId).value.trim();
+  return v === "" ? "-1" : v;  // -1 = the server picks one and reports it
+}
+
+function showUsedSeed(inputId, hintId) {
+  const hint = document.getElementById(hintId);
+  if (lastSeed === null) return;
+  const seed = lastSeed;
+  hint.innerHTML = `本次 seed <b>${escapeHtml(seed)}</b> · <a href="#">固定用它</a>`;
+  hint.querySelector("a").onclick = (e) => {
+    e.preventDefault();
+    document.getElementById(inputId).value = seed;
+  };
+}
+
 /* ========== Streaming Audio Fetch & Playback ========== */
 async function fetchStreamingAudio(url, formData, signal, resultContainerId) {
   const resp = await fetch(url, { method: "POST", body: formData, signal });
@@ -191,6 +210,7 @@ async function fetchStreamingAudio(url, formData, signal, resultContainerId) {
   }
 
   const sampleRate = parseInt(resp.headers.get("X-Sample-Rate") || "24000", 10);
+  lastSeed = resp.headers.get("X-Seed");
   const reader = resp.body.getReader();
   const pcmChunks = [];
   let chunkCount = 0;
@@ -294,10 +314,12 @@ async function handleDesign() {
     form.append("cfg_value", cfg);
     form.append("inference_timesteps", steps);
     form.append("speed", speed);
+    form.append("seed", seedValue("designSeed"));
 
     const blob = await fetchStreamingAudio(
       "/api/voice-design/stream", form, controller.signal, "designResult"
     );
+    showUsedSeed("designSeed", "designSeedUsed");
     showResult("designResult", blob, "voice_design.wav");
     setStatus("", "Ready");
   } catch (err) {
@@ -470,6 +492,7 @@ async function handleClone() {
     form.append("inference_timesteps", steps);
     form.append("speed", speed);
     form.append("pause_scale", pauseScale);
+    form.append("seed", seedValue("cloneSeed"));
 
     const stylePrompt = document.getElementById("cloneStylePrompt").value.trim();
     if (stylePrompt) form.append("style_prompt", stylePrompt);
@@ -487,6 +510,7 @@ async function handleClone() {
     const blob = await fetchStreamingAudio(
       "/api/voice-clone/stream", form, controller.signal, "cloneResult"
     );
+    showUsedSeed("cloneSeed", "cloneSeedUsed");
     showResult("cloneResult", blob, "voice_clone.wav");
     setStatus("", "Ready");
   } catch (err) {

@@ -6,6 +6,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import json
 import logging
+import random
 import tempfile
 import time
 import uuid
@@ -92,6 +93,17 @@ def get_mgr() -> ModelManager:
         model_id = os.environ.get("VOXCPM_MODEL_ID", "openbmb/VoxCPM2")
         mgr = ModelManager(model_id=model_id)
     return mgr
+
+
+def _pick_seed(seed: int) -> int:
+    """Negative = random. The seed used goes back in the X-Seed header, so a good take can be repeated."""
+    return seed if seed >= 0 else random.randrange(2**31)
+
+
+def _seed_rng(seed: int) -> None:
+    # The only sampling is the CFM noise (torch.randn); manual_seed also seeds every CUDA device.
+    # Global RNG: two generations running at the same time make each other unreproducible.
+    torch.manual_seed(seed)
 
 
 def save_wav(wav: np.ndarray, sr: int) -> Path:
@@ -307,6 +319,7 @@ async def voice_design(
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
     speed: float = Form(1.0),
+    seed: int = Form(-1),
 ):
     """Voice Design: create a voice from description + synthesize text."""
     text = text.strip()
@@ -319,6 +332,8 @@ async def voice_design(
     logger.info("[Voice Design] description=%s, text=%s, speed=%.2f", description[:60], text[:60], speed)
 
     m = get_mgr()
+    seed = _pick_seed(seed)
+    _seed_rng(seed)
     wav = m.voxcpm.generate(
         text=final_text,
         cfg_value=cfg_value,
@@ -328,7 +343,8 @@ async def voice_design(
         wav = _apply_speed(wav, speed)
 
     out = save_wav(wav, m.sample_rate)
-    return FileResponse(str(out), media_type="audio/wav", filename="voice_design.wav")
+    return FileResponse(str(out), media_type="audio/wav", filename="voice_design.wav",
+                        headers={"X-Seed": str(seed)})
 
 
 def _wav_header(sample_rate: int, num_channels: int = 1, bits_per_sample: int = 16) -> bytes:
@@ -358,6 +374,7 @@ async def voice_design_stream(
     cfg_value: float = Form(2.0),
     inference_timesteps: int = Form(10),
     speed: float = Form(1.0),
+    seed: int = Form(-1),
 ):
     """Streaming Voice Design: yields WAV audio chunks as they are generated."""
     text = text.strip()
@@ -371,9 +388,11 @@ async def voice_design_stream(
     m = get_mgr()
     sr = m.sample_rate
     apply_speed = abs(speed - 1.0) > 0.02
+    seed = _pick_seed(seed)
 
     def audio_stream():
         yield _wav_header(sr)
+        _seed_rng(seed)
         if not apply_speed:
             for chunk in m.voxcpm.generate_streaming(
                 text=final_text,
@@ -399,7 +418,7 @@ async def voice_design_stream(
     return StreamingResponse(
         audio_stream(),
         media_type="audio/wav",
-        headers={"X-Sample-Rate": str(sr)},
+        headers={"X-Sample-Rate": str(sr), "X-Seed": str(seed)},
     )
 
 
@@ -561,6 +580,7 @@ async def voice_clone(
     inference_timesteps: int = Form(10),
     style_prompt: str = Form(""),
     speed: float = Form(1.0),
+    seed: int = Form(-1),
     pause_scale: float = Form(1.0),
 ):
     """Voice Clone: clone voice from reference audio or saved voice, speak target_text.
@@ -584,14 +604,17 @@ async def voice_clone(
 
     m = get_mgr()
     voice_id = voice_id.strip()
+    seed = _pick_seed(seed)
+    headers = {"X-Seed": str(seed)}
 
     if voice_id:
         logger.info("[Voice Clone - Saved] voice_id=%s, speed=%.2f, pause=%.2f", voice_id, speed, pause_scale)
         prompt_cache = _load_prompt_cache(voice_id)
+        _seed_rng(seed)
         wav = _generate_chunked(m, target_text, prompt_cache, cfg_value, inference_timesteps,
                                 pause_scale=pause_scale, speed=speed)
         out = save_wav(wav, m.sample_rate)
-        return FileResponse(str(out), media_type="audio/wav", filename="voice_clone.wav")
+        return FileResponse(str(out), media_type="audio/wav", filename="voice_clone.wav", headers=headers)
 
     if reference_audio is None:
         raise HTTPException(400, "Either reference_audio or voice_id is required.")
@@ -617,10 +640,11 @@ async def voice_clone(
             logger.info("[Voice Clone - Controllable] reference only")
 
         prompt_cache = _build_prompt_cache_from_ref(m, ref_path, ref_text)
+        _seed_rng(seed)
         wav = _generate_chunked(m, target_text, prompt_cache, cfg_value, inference_timesteps,
                                 pause_scale=pause_scale, speed=speed)
         out = save_wav(wav, m.sample_rate)
-        return FileResponse(str(out), media_type="audio/wav", filename="voice_clone.wav")
+        return FileResponse(str(out), media_type="audio/wav", filename="voice_clone.wav", headers=headers)
 
     finally:
         try:
@@ -640,6 +664,7 @@ async def voice_clone_stream(
     inference_timesteps: int = Form(10),
     style_prompt: str = Form(""),
     speed: float = Form(1.0),
+    seed: int = Form(-1),
     pause_scale: float = Form(1.0),
 ):
     """Streaming Voice Clone: yields WAV audio chunk-by-chunk for long text."""
@@ -655,6 +680,7 @@ async def voice_clone_stream(
     m = get_mgr()
     sr = m.sample_rate
     voice_id = voice_id.strip()
+    seed = _pick_seed(seed)
 
     if voice_id:
         logger.info("[Voice Clone Stream - Saved] voice_id=%s, speed=%.2f, pause=%.2f", voice_id, speed, pause_scale)
@@ -662,6 +688,7 @@ async def voice_clone_stream(
 
         def audio_stream_cached():
             yield _wav_header(sr)
+            _seed_rng(seed)
             for wav_chunk in _generate_chunked_streaming(
                 m, target_text, prompt_cache, cfg_value, inference_timesteps,
                 pause_scale=pause_scale, speed=speed,
@@ -671,7 +698,7 @@ async def voice_clone_stream(
         return StreamingResponse(
             audio_stream_cached(),
             media_type="audio/wav",
-            headers={"X-Sample-Rate": str(sr)},
+            headers={"X-Sample-Rate": str(sr), "X-Seed": str(seed)},
         )
 
     if reference_audio is None:
@@ -700,6 +727,7 @@ async def voice_clone_stream(
 
     def audio_stream():
         yield _wav_header(sr)
+        _seed_rng(seed)
         try:
             for wav_chunk in _generate_chunked_streaming(
                 m, target_text, prompt_cache, cfg_value, inference_timesteps,
@@ -715,7 +743,7 @@ async def voice_clone_stream(
     return StreamingResponse(
         audio_stream(),
         media_type="audio/wav",
-        headers={"X-Sample-Rate": str(sr)},
+        headers={"X-Sample-Rate": str(sr), "X-Seed": str(seed)},
     )
 
 

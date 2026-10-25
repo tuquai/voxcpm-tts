@@ -105,6 +105,11 @@
                   </div>
                   <span class="hint" style="margin-top:4px">后处理时间拉伸，不改变音色</span>
                 </div>
+                <div class="param-item">
+                  <label for="designSeed">Seed</label>
+                  <input type="number" id="designSeed" min="0" step="1" placeholder="留空 = 随机" />
+                  <span class="hint seed-used" style="margin-top:4px" id="designSeedUsed">同一 seed + 同样的文字和参数 = 同样的声音</span>
+                </div>
               </div>
             </div>
           </details>
@@ -307,6 +312,12 @@
               </div>
             </div>
             <span class="hint">语速：调整最终音频播放速度（不改变音色）。停顿：控制句间静音时长，0 = 无停顿，1 = 自然停顿</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cloneSeed">Seed</label>
+            <input type="number" id="cloneSeed" min="0" step="1" placeholder="留空 = 随机" />
+            <span class="hint seed-used" id="cloneSeedUsed">同一 seed + 同样的文字和参数 = 同样的声音</span>
           </div>
 
           <div class="form-group">

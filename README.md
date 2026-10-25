@@ -61,6 +61,12 @@ python app.py --model-id ./models/VoxCPM2
 | `POST` | `/api/asr` | Auto-transcribe audio |
 | `GET`  | `/api/health` | Health check |
 
+Every synthesis endpoint (`/api/voice-design[/stream]`, `/api/voice-clone[/stream]`) takes an
+optional `seed` form field: the same seed, text and parameters give the same audio (measured
+bit-identical on an RTX 4090). Without it (or `-1`) the server picks one; the response's `X-Seed`
+header says which, so a take you like can be repeated. The seed is process-global: two generations
+running at once make each other unreproducible. Tests: `venv/bin/python -m unittest discover tests`.
+
 ### Voice Design
 
 ```bash
