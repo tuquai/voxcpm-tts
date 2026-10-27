@@ -59,6 +59,7 @@ python app.py --model-id ./models/VoxCPM2
 | `POST` | `/api/voice-design` | Voice design (description + text → audio) |
 | `POST` | `/api/voice-clone` | Voice cloning (reference audio + target text → audio) |
 | `POST` | `/api/asr` | Auto-transcribe audio |
+| `POST` | `/api/voices/from-design` | Save a designed sentence (text, description, seed) as a voice |
 | `GET`  | `/api/health` | Health check |
 
 Every synthesis endpoint (`/api/voice-design[/stream]`, `/api/voice-clone[/stream]`) takes an
@@ -66,6 +67,12 @@ optional `seed` form field: the same seed, text and parameters give the same aud
 bit-identical on an RTX 4090). Without it (or `-1`) the server picks one; the response's `X-Seed`
 header says which, so a take you like can be repeated. The seed is process-global: two generations
 running at once make each other unreproducible. Tests: `venv/bin/python -m unittest discover tests`.
+
+A seed repeats a sentence, it does not keep a designed voice: voice design draws a new speaker for
+every sentence (CAM++ speaker similarity between four sentences: 0.34 with one seed, 0.32 with random
+seeds). To keep one, `POST /api/voices/from-design` (`text`, `description`, `seed`, optional `name`)
+speaks that sentence again exactly as the stream did and saves it as a voice; cloning with it keeps the
+speaker (0.87 between sentences, 0.81 to the original sentence).
 
 ### Voice Design
 

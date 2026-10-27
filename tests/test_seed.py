@@ -20,6 +20,12 @@ class FakeTTSModel:
 
     def __init__(self):
         self.caches = []  # prompt caches it was given, in order
+        self.references = []  # (audio, prompt_text) of the voices it encoded
+
+    def build_prompt_cache(self, reference_wav_path, prompt_text=None, prompt_wav_path=None):
+        import soundfile as sf
+        self.references.append((sf.read(reference_wav_path, dtype="float32")[0], prompt_text))
+        return {"mode": "ref_continuation"}
 
     def generate_with_prompt_cache(self, target_text, prompt_cache, cfg_value, inference_timesteps):
         self.caches.append(prompt_cache)
@@ -123,6 +129,41 @@ class CloneStreamingTest(ServerTest):
     def test_speed_change_needs_the_whole_sentence(self):
         r = self.post("/api/voice-clone/stream", target_text="你好。", voice_id="v", speed="1.3")
         self.assertNotEqual(len(r.content) - 44, 3 * 160 * 2)
+
+
+class DesignedVoiceTest(ServerTest):
+    """Voice design draws a new speaker for every sentence, even with one seed (the seed only
+    repeats the same sentence): /api/voices/from-design saves one designed sentence as a voice."""
+
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self._voices = server.VOICES_DIR
+        server.VOICES_DIR = Path(self.tmp.name)
+
+    def tearDown(self):
+        server.VOICES_DIR = self._voices
+        self.tmp.cleanup()
+        super().tearDown()
+
+    def test_the_saved_voice_is_the_sentence_the_stream_spoke(self):
+        heard = self.post("/api/voice-design/stream", text="大家好", description="年轻女性", seed="42").content
+        meta = self.post("/api/voices/from-design", text="大家好", description="年轻女性", seed="42").json()
+        audio, text = self.mgr.voxcpm.tts_model.references[-1]
+        pcm = np.frombuffer(heard[44:], np.int16) / 32768
+        self.assertEqual(len(audio), len(pcm))
+        self.assertLessEqual(np.abs(audio - pcm).max(), 2 / 32768)  # two int16 roundings only
+        self.assertEqual((text, meta["has_text"], meta["seed"], meta["description"]), ("大家好", True, 42, "年轻女性"))
+
+    def test_it_is_listed_with_its_name(self):
+        meta = self.post("/api/voices/from-design", text="大家好", seed="7", name="主播A").json()
+        self.assertEqual([v["name"] for v in self.client.get("/api/voices").json()], ["主播A"])
+        self.assertTrue((server.VOICES_DIR / meta["id"] / "meta.json").exists())
+
+    def test_a_seed_is_required(self):
+        r = self.client.post("/api/voices/from-design", data={"text": "大家好", "seed": "-1"})
+        self.assertEqual(r.status_code, 400)
 
 
 if __name__ == "__main__":

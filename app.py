@@ -506,36 +506,79 @@ async def save_voice(
             ref_text = m.recognize(ref_path)
             logger.info("[Save Voice] ASR result: %s", ref_text[:80])
 
-        build_kwargs: dict = dict(reference_wav_path=ref_path)
-        if ref_text:
-            build_kwargs["prompt_text"] = ref_text
-            build_kwargs["prompt_wav_path"] = ref_path
-
-        prompt_cache = m.voxcpm.tts_model.build_prompt_cache(**build_kwargs)
-
-        voice_id = uuid.uuid4().hex[:12]
-        voice_dir = VOICES_DIR / voice_id
-        voice_dir.mkdir(parents=True, exist_ok=True)
-
-        torch.save(prompt_cache, str(_voice_cache_path(voice_id)))
-
-        meta = {
-            "id": voice_id,
-            "name": name,
-            "has_text": bool(ref_text),
-            "reference_text": ref_text,
-            "created_at": time.time(),
-        }
-        _voice_meta_path(voice_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-
-        logger.info("[Save Voice] Saved voice '%s' (id=%s, has_text=%s)", name, voice_id, bool(ref_text))
-        return JSONResponse(meta)
+        return JSONResponse(_store_voice(m, name, ref_path, ref_text))
 
     finally:
         try:
             os.unlink(tmp.name)
         except OSError:
             pass
+
+
+def _store_voice(m, name: str, ref_path: str, ref_text: str, **extra) -> dict:
+    """Encode the reference once into a prompt cache and save it as a voice; returns its meta."""
+    build_kwargs: dict = dict(reference_wav_path=ref_path)
+    if ref_text:
+        build_kwargs["prompt_text"] = ref_text
+        build_kwargs["prompt_wav_path"] = ref_path
+
+    prompt_cache = m.voxcpm.tts_model.build_prompt_cache(**build_kwargs)
+
+    voice_id = uuid.uuid4().hex[:12]
+    voice_dir = VOICES_DIR / voice_id
+    voice_dir.mkdir(parents=True, exist_ok=True)
+
+    torch.save(prompt_cache, str(_voice_cache_path(voice_id)))
+
+    meta = {
+        "id": voice_id,
+        "name": name,
+        "has_text": bool(ref_text),
+        "reference_text": ref_text,
+        "created_at": time.time(),
+        **extra,
+    }
+    _voice_meta_path(voice_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+
+    logger.info("[Save Voice] Saved voice '%s' (id=%s, has_text=%s)", name, voice_id, bool(ref_text))
+    return meta
+
+
+@app.post("/api/voices/from-design")
+async def save_designed_voice(
+    text: str = Form(...),
+    description: str = Form(""),
+    seed: int = Form(...),
+    name: str = Form(""),
+    cfg_value: float = Form(2.0),
+    inference_timesteps: int = Form(10),
+):
+    """Lock a designed voice. Voice design draws a new speaker for every sentence, even with one
+    seed (the seed only repeats the same sentence; measured: speaker similarity between sentences
+    0.34 with a fixed seed, 0.32 with random ones, 0.87 when cloned from one of them). This speaks
+    the sentence again exactly as /api/voice-design/stream did (text, description, seed) and saves
+    it as a voice: voice-clone with it keeps that speaker."""
+    text, description = text.strip(), description.strip()
+    if not text:
+        raise HTTPException(400, "Text is required.")
+    if seed < 0:
+        raise HTTPException(400, "A seed is required: the voice of which sentence to keep.")
+
+    m = get_mgr()
+    _seed_rng(seed)
+    chunks = m.voxcpm.generate_streaming(
+        text=f"({description}){text}" if description else text,
+        cfg_value=cfg_value,
+        inference_timesteps=inference_timesteps,
+    )
+    wav = np.concatenate([c if isinstance(c, np.ndarray) else c.cpu().numpy() for c in chunks], axis=-1)
+    ref = save_wav(wav, m.sample_rate)
+    try:
+        meta = _store_voice(m, name.strip() or f"设计音色 seed {seed}", str(ref), text,
+                            source="design", seed=seed, description=description)
+    finally:
+        ref.unlink(missing_ok=True)
+    return JSONResponse(meta)
 
 
 @app.get("/api/voices")
